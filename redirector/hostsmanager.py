@@ -44,16 +44,21 @@ class HostsManager(object):
         :raises: HostsManagerError in case of error
         """
 
-        # Write the result to a temporary file
-        tmp_fd, tmp_path = tempfile.mkstemp(prefix="redirector_")
+        # Identify the metadata of the original /etc/hosts file
+        hosts_stat = os.stat("/etc/hosts")
+        mode = stat.S_IMODE(hosts_stat.st_mode)
+        uid = hosts_stat.st_uid
+        gid = hosts_stat.st_gid
+
+        # Create a temporary file, preferably in the default temporary directory
+        if hosts_stat.st_dev == os.stat(tempfile.gettempdir()).st_dev:
+            tmp_fd, tmp_path = tempfile.mkstemp(prefix="redirector_tmp_")
+        else:
+            tmp_fd, tmp_path = tempfile.mkstemp(prefix=".redirector_tmp_", dir="/etc")
+
+        # Write the result to the temporary file
         with os.fdopen(tmp_fd, "w") as f:
             f.write("".join(lines))
-
-        # Identify the metadate of the original /etc/hosts file
-        file_stat = os.stat("/etc/hosts")
-        mode = stat.S_IMODE(file_stat.st_mode)
-        uid = file_stat.st_uid
-        gid = file_stat.st_gid
 
         # Apply the same permissions to the temporary file
         os.chmod(tmp_path, mode)
